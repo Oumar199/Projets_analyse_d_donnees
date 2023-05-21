@@ -1,0 +1,142 @@
+---
+title: "Test_course"
+author: "Oumar Kane"
+date: "15/03/2022"
+output: pdf_document
+---
+
+# Variable selection on customer segmentation data
+
+
+## First, we have to import some libraries
+```{r}
+library(MASS)
+library(randomForest)
+library(VSURF)
+library(corrplot)
+```
+
+## Let's get the data
+```{r}
+data = read.csv("E:/Oumar/Ordinateur Dell/oumar/documents/Cours/IA data forest/master semestre 2/Analyse de données/Projets/Data/Customer/results/cleaned_data.csv")
+```
+
+```{r}
+attach(data)
+```
+
+```{r}
+head(data)
+```
+
+We can delete the InvoiceNo, StockCode and the CustomerID variables which are not interesting
+```{r}
+data = data[,-c(1, 2, 7)]
+```
+
+## Let's change the type of InvoiceDate variable to DateTime
+```{r}
+InvoiceDate = as.Date(InvoiceDate)
+```
+
+## Let's recuperate quantitative variables in a data.frame
+```{r}
+quanti = data[, -c(1, 3)]
+```
+
+## pair plot of quantitative variables
+```{r}
+corrplot(cor(quanti))
+```
+
+```{r}
+dev_rv = function(model1, model2){
+  1 - pchisq(deviance(model1) - deviance(model2), residuals(model1) - residuals(model2))
+}
+```
+
+```{r}
+model0 = lm(TotalPrice~1, data = quanti)
+model1 = lm(TotalPrice~Quantity, data = quanti)
+dev_rv(model0, model1)
+```
+
+```{r}
+summary(model0)
+residuals(model0) - residuals(model1)
+deviance(model0) - deviance(model1)
+1 - pchisq(deviance(model0) - deviance(model1), residuals(model0) - residuals(model1))
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+

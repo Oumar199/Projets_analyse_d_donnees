@@ -1,0 +1,581 @@
+---
+title: "heart_attack"
+author: "Oumar"
+date: "15/03/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Variables selection with heart attack dataset
+
+## We have recuperated a dataset named heart_attack which is very interesting for a debut
+
+
+## Let's import the needed libraries firther
+```{r}
+library(MASS)
+library(randomForest)
+library(VSURF)
+library(corrplot)
+library(VGAM)
+
+# the glm function will be use because we have binary categorical target
+```
+
+## We can recuperate the dataset by indicating the path
+
+```{r}
+heart_data = read.csv("E:/Oumar/Ordinateur Dell/oumar/documents/Cours/IA data forest/master semestre 2/Analyse de données/Projets/Data/Heart_disease/data/heart2.csv")
+```
+
+
+Let's attach the dataset to manipulate fastly the columns
+```{r}
+attach(heart_data)
+```
+
+
+We have to see the five first lines of the dataset and verify the types
+```{r}
+head(heart_data)
+```
+
+The data is already cleaned. We have some categorical variables but those variables are encoded.
+Let's profile deeper the dataset.
+
+## Let's see if the different variables are correlated together with a pairplot
+## and a corrplot
+```{r}
+pairs(heart_data)
+corrplot(cor(heart_data))
+```
+We didn't see very well the shapes of the scatter maded beetween variables if we trace the plot
+with the full dataset. But we can do it again with only few variables.
+```{r}
+# choose only four first variables
+pairs(heart_data[, 1:4])
+```
+We see that with the categorical variables we did not obtain good distributions. We cannot interprate the 
+the plots with the categorical variables but only with the quantitative variables. Let's recuperate only 
+the quantitative variables in a new dataframe.
+```{r}
+quanti = heart_data[, c(1, 4, 5, 8, 10)]
+```
+
+
+Let's trace a new pairplot without categorical variables
+```{r}
+pairs(quanti)
+```
+We see that some variables like thalach and age or chol and age are correlated 
+```{r}
+# Let's trace the corrplot to see more clearly the variables interactions
+corrplot(cor(quanti))
+```
+
+## Preprocessing
+
+### Let's change the type of the categorical variables to factor
+
+```{r}
+for (i in c(2, 3, 6, 7, 9, 11, 12, 13, 14)){
+  heart_data[, i] = as.factor(heart_data[, i])
+}
+```
+
+
+### Let's see we if obtain a good fitting with a logistic regression model
+We use a logistic regression model because the target `output` is a binary categorical variable
+```{r}
+summary(glm(target~., data = heart_data, family = binomial))
+```
+
+## We can begin the selection using the likelihood ratio
+
+We choose
+```{r}
+# create a function calculating the likelihood ratio
+LRT_dev = function(mod1, mod2){
+  p_value =  1 - pchisq(deviance(mod1) - deviance(mod2), df.residual(mod1) - df.residual(mod2)) 
+  print(paste("p_value is : ", p_value))
+  print(paste("p_value < 0.05 : ", as.logical(p_value < 0.05)))
+}
+```
+
+
+## Forward selection with likelihood ratio
+### age
+```{r}
+model0 = glm(target~1, data = heart_data, family = binomial)
+model1 = glm(target~age, data = heart_data, family = binomial)
+
+LRT_dev(model0, model1)
+```
+The age variable is relevant, we can maintain it
+
+### sex
+```{r}
+model2 = glm(target~age+sex, data = heart_data, family = binomial)
+
+LRT_dev(model1, model2)
+```
+The sex variable is relevant, we can maintain it
+
+### cp
+```{r}
+model3 = glm(target~age+sex+cp, data = heart_data, family = binomial)
+
+LRT_dev(model2, model3)
+```
+The cp variable is relevant, we can maintain it
+
+### trestbps
+```{r}
+model4 = glm(target~age+sex+cp+trestbps, data = heart_data, family = binomial)
+
+LRT_dev(model3, model4)
+```
+The trestbps variable is relevant, we can maintain it
+
+
+### chol
+```{r}
+model5 = glm(target~age+sex+cp+trestbps+chol, data = heart_data, family = binomial)
+
+LRT_dev(model4, model5)
+```
+The chol variable is relevant, we can maintain it
+
+### fbs
+```{r}
+model6 = glm(target~age+sex+cp+trestbps+chol+fbs, data = heart_data, family = binomial)
+
+LRT_dev(model5, model6)
+```
+The fbs variable is not relevant, we can exclude it
+
+### restecg
+```{r}
+model7 = glm(target~age+sex+cp+trestbps+chol+restecg, data = heart_data, family = binomial)
+
+LRT_dev(model5, model7)
+```
+The restecg variable is relevant, we can maintain it
+
+### thalach
+```{r}
+model8 = glm(target~age+sex+cp+trestbps+chol+restecg+thalach, data = heart_data, family = binomial)
+
+LRT_dev(model7, model8)
+```
+The thalach variable is relevant, we can maintain it
+
+### exang
+```{r}
+model9 = glm(target~age+sex+cp+trestbps+chol+restecg+thalach+exang, data = heart_data, family = binomial)
+
+LRT_dev(model8, model9)
+```
+The exang variable is relevant, we can maintain it
+
+### oldpeak
+```{r}
+model10 = glm(target~age+sex+cp+trestbps+chol+restecg+thalach+exang+oldpeak, data = heart_data, family = binomial)
+
+LRT_dev(model9, model10)
+```
+The oldpeak variable is relevant, we can maintain it
+
+### slope
+```{r}
+model11 = glm(target~age+sex+cp+trestbps+chol+restecg+thalach+exang+oldpeak+slope, data = heart_data, family = binomial)
+
+LRT_dev(model10, model11)
+```
+The slope variable is relevant, we can maintain it
+
+### ca
+
+```{r}
+model12 = glm(target~age+sex+cp+trestbps+chol+restecg+thalach+exang+oldpeak+slope+ca, data = heart_data, family = binomial)
+
+LRT_dev(model11, model12)
+```
+The ca variable is relevant, we can maintain it
+
+### thal
+```{r}
+model13 = glm(target~age+sex+cp+trestbps+chol+restecg+thalach+exang+oldpeak+slope+ca+thal, data = heart_data, family = binomial)
+
+LRT_dev(model12, model13)
+```
+The thal variable is relevant, we can maintain it
+
+### Conclusion : 
+The final model doesn't contain the fbs variable : 
+
+```{r}
+final_model_forw = model13
+# summary of the model
+summary(final_model_forw)
+```
+
+
+## Backward selection with likelihood ratio
+### age
+```{r}
+model0 = glm(target~., data = heart_data, family = binomial)
+model1 = glm(target~.-age, data = heart_data, family = binomial)
+
+LRT_dev(model1, model0)
+```
+The age variable is not relevant, we can exclude it
+
+### sex
+```{r}
+model2 = glm(target~.-age-sex, data = heart_data, family = binomial)
+
+LRT_dev(model2, model1)
+```
+The sex variable is relevant, we can maintain it
+
+### cp
+```{r}
+model3 = glm(target~.-age-cp, data = heart_data, family = binomial)
+
+LRT_dev(model3, model1)
+```
+The cp variable is relevant, we can maintain it
+
+### trestbps
+```{r}
+model4 = glm(target~.-age-trestbps, data = heart_data, family = binomial)
+
+LRT_dev(model4, model1)
+```
+The trestbps variable is relevant, we can maintain it
+
+### chol
+```{r}
+model5 = glm(target~.-age-chol, data = heart_data, family = binomial)
+
+LRT_dev(model5, model1)
+```
+The chol variable is relevant, we can maintain it
+
+### fbs
+```{r}
+model6 = glm(target~.-age-fbs, data = heart_data, family = binomial)
+
+LRT_dev(model6, model1)
+```
+The fbs variable is not relevant, we can exclude it
+
+### restecg
+```{r}
+model7 = glm(target~.-age-fbs-restecg, data = heart_data, family = binomial)
+
+LRT_dev(model7, model6)
+```
+The restecg variable is not relevant, we can exclude it
+
+### thalach
+```{r}
+model8 = glm(target~.-age-fbs-restecg-thalach, data = heart_data, family = binomial)
+
+LRT_dev(model8, model7)
+```
+The thalach variable is relevant, we can maintain it
+
+### exang
+```{r}
+model9 = glm(target~.-age-fbs-restecg-exang, data = heart_data, family = binomial)
+
+LRT_dev(model9, model7)
+```
+The exang variable is relevant, we can maintain it
+
+### oldpeak
+```{r}
+model10 = glm(target~.-age-fbs-restecg-oldpeak, data = heart_data, family = binomial)
+
+LRT_dev(model10, model7)
+```
+The oldpeak variable is relevant, we can maintain it
+
+### slope
+```{r}
+model11 = glm(target~.-age-fbs-restecg-slope, data = heart_data, family = binomial)
+
+LRT_dev(model11, model7)
+```
+The slope variable is relevant, we can maintain it
+
+### ca
+```{r}
+model12 = glm(target~.-age-fbs-restecg-ca, data = heart_data, family = binomial)
+
+LRT_dev(model12, model7)
+```
+The ca variable is relevant, we can maintain it
+
+### thal
+```{r}
+model13 = glm(target~.-age-fbs-restecg-thal, data = heart_data, family = binomial)
+
+LRT_dev(model13, model7)
+```
+The thal variable is relevant, we can maintain it
+
+
+### conclusion : 
+The final model doesn't contain the following variables : age, fbs and restecg.
+```{r}
+final_model_back = model7
+summary(final_model_back)
+```
+
+
+## Let's make variables selection with the stepwise trick
+The stepwise function (stepAIC) take as main parameters the model (logistic) and
+the direction which can be forward, backward or both. We can choose the both direction
+to obtain the best possible model. The time complexity of
+the stepwise method is very high but we will finally obtain a good selection.
+```{r}
+model = glm(target~., data = heart_data, family = binomial)
+step.model = stepAIC(model, direction = "both")
+```
+
+```{r}
+# summary of the stepwise model
+summary(step.model)
+```
+### Conclusion of the stepwise selection : 
+The variables that the model decided to use for his training are : age, sex, cp, trestbps, chol, thalach, exang, oldpeak, slope, ca and thal. So only the fbs variable didn't be choosed
+
+## Make selection with the random forest classification model :
+This method selects the best variables by using the random forest classification model. The random forest model is known to be a non parametric model.
+```{r}
+forest.model = randomForest(target~., data = heart_data, importance = TRUE)
+```
+
+```{r}
+summary(forest.model)
+```
+
+```{r}
+# plot the OOB errors
+plot(forest.model)
+```
+
+### Let's plot the classification of the variables
+```{r}
+varImpPlot(forest.model, type = 1, c = 1, pch = 20, cex = 1, main = "Random Forest selection")
+```
+**The most relevant variables are the caa, thall, sex, cp, oldpeak and thalachh variables that we previously selected with the other methods.**
+
+With the VSURF package we will interprate the selection and visualize the best choices.
+```{r}
+y = heart_data[, 1]
+x = heart_data[, -1]
+th1 = VSURF_thres(x, y, ntree = 500)
+```
+
+```{r}
+vs1 = VSURF_interp(x, y, vars = th1$varselect.thres)
+```
+
+Let's visualize the number of variables choosed
+```{r}
+plot(vs1)
+```
+The model choosed the 6 or 7 best variables finally (the number can change over the training we can choose a seed to fix it). Let's print out the names of those variables. 
+```{r}
+rf_vs=forest.model = randomForest(target~., data = heart_data, importance = TRUE)
+varImpPlot(rf_vs, type = 1, c = 1, pch = 20, cex = 1, main = "Random Forest selection")
+th1 = VSURF_thres(dx_1,dy_1, ntree = 200)
+vs1 = VSURF_interp(dx_1,dy_1, vars = th_1$varselect.thres)
+```
+
+
+```{r}
+plot(vs1)
+
+```
+
+
+```{r}
+vs1$varselect.interp
+names(dx_1)[vs1$varselect.interp]
+```
+With the randomForest model only the fbs variable isn’t relevant.
+
+The variables that return in all methods are: age, sex, cp, trestbps, chol, thalach, exang, oldpeak, slope, ca and thal
+
+Let's run a logistic regression model
+
+##We will remove all missing values from the dataset
+```{r}
+heart_data <- na.omit(heart_data)
+```
+
+```{r}
+summary(heart_data)
+```
+##Sampling: Learning vs. Testing
+
+We can now try to split the dataset into training set and testing set.
+```{r}
+set.seed(111)
+d = sort(sample(nrow(heart_data), nrow(heart_data) * 0.7))
+```
+
+Training sample
+```{r}
+appren <- heart_data[d, ]
+summary(appren)
+```
+Test sample
+
+```{r}
+test <- heart_data[-d, ]
+summary(test)
+```
+##Modelization
+
+The model used here is the logistic regression which can be found in R as glm.
+```{r}
+logit = function(formula, lien = "logit", data = NULL) {
+    glm(formula, family = binomial(link = lien), data)}
+```
+
+
+We introduce all the variables in our model except fbs
+```{r}
+m.logit <- logit(target~age+sex+cp+trestbps+chol+thalach+exang+oldpeak+slope+ca+thal, data = appren)
+
+summary(m.logit)
+```
+##Model validation: Quality and robustness indicators
+
+After obtaining a model, it is necessary to diagnose the regression in order to validate or not the model.
+
+```{r}
+par(mfrow = c(1, 1))
+plot(rstudent(m.logit), type = "p", cex = 0.5, ylab = "Résidus studentisés ", 
+    col = "springgreen2", ylim = c(-3, 3))
+abline(h = c(-2, 2), col = "red")
+```
+```{r}
+(chi2 <- with(m.logit, null.deviance - deviance))
+```
+
+
+```{r}
+(ddl <- with(m.logit, df.null - df.residual))
+```
+
+
+```{r}
+(pvalue <- pchisq(chi2, ddl, lower.tail = F))
+```
+## We are now going to try to validate on the test sample that we have previously defined
+
+Here are the steps we will follow to validate our model
+
+On the training sample and on the test sample:
+
+We calculate a confusion matrix: and therefore we measure an error rate
+the air is evaluated under the ROC curve
+```{r}
+appren.p <- cbind(appren, predict(m.logit, newdata = appren, type = "link", 
+    se = TRUE))
+head(appren.p)
+appren.p <- within(appren.p, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+tail(appren.p)
+```
+```{r}
+appren.p <- cbind(appren.p, pred.target = factor(ifelse(appren.p$PredictedProb > 
+    0.5, 1, 0)))
+head(appren.p)
+```
+```{r}
+(m.confusion <- as.matrix(table(appren.p$pred.target, appren.p$target)))
+```
+
+
+```{r}
+m.confusion <- unclass(m.confusion)
+# Taux d'erreur
+Tx_err <- function(y, ypred) {
+    mc <- table(y, ypred)
+    error <- (mc[1, 2] + mc[2, 1])/sum(mc)
+    print(error)
+}
+Tx_err(appren.p$pred.target, appren.p$target)
+```
+# calculation of the error rate on the train sample
+
+```{r}
+test.p <- cbind(test, predict(m.logit, newdata = test, type = "response", se = TRUE))
+test.p <- cbind(test.p, pred.target <- factor(ifelse(test.p$fit > 0.5, 1, 0)))
+(m.confusiontest <- as.matrix(table(test.p$pred.target, test.p$target)))
+
+```
+# calculation of the error rate on the test sample
+
+```{r}
+m.confusiontest <- unclass(m.confusiontest)
+
+Tx_err(test.p$pred.target, test.p$target)
+```
+
+##Construction of ROC curves: 
+This curve, or rather the area under it, represents the sensitivity/specificity of the model. A model is good if positives (1) were predicted positives and 0 were predicted 0.
+Generally, we are interested in both the shape of the curve and the area under it: 1–> Ideal model, 0.5 –> Random model;
+
+Principle of the ROC curve: if the test gives a numerical result with a threshold t such that the prediction is positive if x > t, and the prediction is negative if x < t, then as t increases:
+
+the specificity increases.
+but the sensitivity decreases.
+The ROC curve represents the change in sensitivity (rate of true positives) as a function of 1 - specificity (rate of false positives) when the threshold t is varied.
+
+It is an increasing curve between the point (0,0) and the point (1, 1) and in principle above the first bisector. A random prediction would give the first bisector. The better the prediction, the more the curve is above the first bisector. An ideal prediction is the horizontal y=1 on ]0,1] and the point (0,0). The area under the ROC curve (AUC, Area Under the Curve) gives an indicator of the quality of the prediction (1 for an ideal prediction, 0.5 for a random prediction).
+```{r}
+library(ROCR)
+Pred = prediction(appren.p$PredictedProb, appren.p$target)
+Perf = performance(Pred, "tpr", "fpr")
+plot(Perf, colorize = TRUE, main = "ROC apprentissage")
+```
+```{r}
+perf <- performance(Pred, "auc")
+perf@y.values[[1]]
+```
+
+To get the area under the curve, we will rather use
+```{r}
+Predtest = prediction(test.p$fit, test.p$target)
+Perftest = performance(Predtest, "tpr", "fpr")
+perftest <- performance(Predtest, "auc")
+perftest@y.values[[1]]
+```
+
+We will put the two ROC curves side by side (learning and testing)
+
+```{r}
+par(mfrow = c(1, 2))
+plot(Perf, colorize = TRUE, main = "ROC apprentissage - AUC= 0.95")
+plot(Perftest, colorize = TRUE, main = "ROC Test - AUC 20.95 ")
+```
+
+
+```{r}
+```

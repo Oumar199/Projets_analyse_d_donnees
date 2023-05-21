@@ -1,0 +1,702 @@
+---
+title: "FAMD with heart attack dataset"
+author: "Oumar Kane"
+date: "14/04/2022"
+output: html_document
+---
+
+
+
+
+
+```{r setup, include=FALSE}
+library(FactoMineR)
+library(factoextra)
+library(MASS)
+library(ggplot2)
+library(corrplot)
+library(VGAM)
+library(visdat)
+library(tidyverse)
+library(ROCR)
+
+```
+
+# Factorial Analysis of Mixed Data with the heart attack dataset
+
+In this part of the project we have to diminish the number of variables with a another very used technic in data science which is the Factorial Analysis of Mixed Data (FAMD). We use the FAMD instead of PCA (Principal Component Analysis), because, as we saw in the previous part, we have not only quantitative variables in our dataset, we have also qualitative variables. So let's begin.
+
+## First steps
+
+**Import the dataset, further** :
+
+```{r}
+heart_data_original = read.csv("E:/Oumar/Ordinateur Dell/oumar/documents/Cours/IA data forest/master semestre 2/Analyse de données/Projets/Data/Heart_disease/data/heart2.csv")
+
+# Let's copy the dataset to do not lose it
+heart_data = data.frame(heart_data_original)
+```
+
+We can go directly to the main steps because we had already explore the dataset.
+
+**Correlated variables:** We saw that many variables are correlated together. We identified correlations between :
+
+- The age variable and the other quantitative variables;
+
+- oldpeak, trestbps and thalach
+
+- chol and trestbps.
+
+**Identify categorical variables:**
+We must change the type of the target to factor at first.
+
+```{r}
+for (i in c(2, 3, 6, 7, 9, 11, 12, 13, 14)){
+  heart_data[, i] = as.factor(heart_data[, i])
+}
+```
+
+**Test the logistic regression on the dataset:**
+We use a logistic regression model because the target `target` is a binary categorical variable.
+```{r}
+summary(glm(target~., data = heart_data, family = binomial))
+```
+
+Some variables' p values are over 0.05. So they don't add much information to the model. 
+
+**A function that give us a formula directly:**
+
+```{r}
+get_formula_add = function(target, variables){
+ return(as.formula(                      # Create formula
+  paste(paste(target, " ~ "), paste(variables, collapse = " + "))))
+}
+get_formula_rem = function(target, variables, all_variables){
+ return(as.formula(                      # Create formula
+  paste(paste(target, " ~ "), paste(paste(paste(all_variables, collapse = " + "), " - ")), paste(variables, collapse = " - "))))
+}
+```
+
+
+## Begin Analysis
+
+### Recuperate a new dataset
+
+Let's recuperate a dataset that will not contains the target variable.
+
+```{r}
+df.famd = heart_data[-14] # this dataset contains only the variables that we want to use for the analyzes
+```
+
+### Let's process the Factorial Analysis of Mixed Data
+
+We will use the FAMD function which is provided by the FactoMineR library
+
+```{r}
+res.famd = FAMD(df.famd, graph = FALSE)
+```
+
+```{r}
+print(res.famd)
+```
+
+```{r}
+summary(res.famd)
+```
+
+```{r}
+fviz_screeplot(res.famd)
+```
+
+```{r}
+```
+
+# Exemple of modelisation with Axes 
+
+
+```{r}
+# recuperate three first axes
+x = as_tibble(get_famd_ind(res.famd)$coord)[1:3]
+```
+
+
+Bind the target with the individual scores
+```{r}
+df.glm = cbind(heart_data[14], x)
+```
+
+
+
+```{r}
+m.logit = glm(target~., data = df.glm, family = binomial)
+```
+
+Let's get train set and test set
+```{r}
+d = sort(sample(nrow(df.glm), nrow(df.glm) * 0.7))
+
+appren <- df.glm[d, ]
+
+test <- df.glm[-d, ]
+```
+
+
+final mode
+```{r}
+m.logit <- glm(target~., data = appren, family = binomial)
+summary(m.logit)
+```
+##Model validation: Quality and robustness indicators
+
+After obtaining a model, it is necessary to diagnose the regression in order to validate or not the model.
+
+```{r}
+par(mfrow = c(1, 1))
+plot(rstudent(m.logit), type = "p", cex = 0.5, ylab = "Résidus studentisés ", 
+    col = "springgreen2", ylim = c(-3, 3))
+abline(h = c(-2, 2), col = "red")
+```
+```{r}
+(chi2 <- with(m.logit, null.deviance - deviance))
+```
+
+
+```{r}
+(ddl <- with(m.logit, df.null - df.residual))
+```
+
+
+```{r}
+(pvalue <- pchisq(chi2, ddl, lower.tail = F))
+```
+## We are now going to try to validate on the test sample that we have previously defined
+
+Here are the steps we will follow to validate our model
+
+On the training sample and on the test sample:
+
+We calculate a confusion matrix: and therefore we measure an error rate
+the air is evaluated under the ROC curve
+```{r}
+appren.p <- cbind(appren, predict(m.logit, newdata = appren, type = "link", 
+    se = TRUE))
+head(appren.p)
+appren.p <- within(appren.p, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+tail(appren.p)
+```
+```{r}
+appren.p <- cbind(appren.p, pred.target = factor(ifelse(appren.p$PredictedProb > 
+    0.5, 1, 0)))
+head(appren.p)
+```
+```{r}
+(m.confusion <- as.matrix(table(appren.p$pred.target, appren.p$target)))
+```
+
+
+```{r}
+m.confusion <- unclass(m.confusion)
+# Taux d'erreur
+Tx_err <- function(y, ypred) {
+    mc <- table(y, ypred)
+    error <- (mc[1, 2] + mc[2, 1])/sum(mc)
+    print(error)
+}
+Tx_err(appren.p$pred.target, appren.p$target)
+```
+### calculation of the error rate on the training sample
+
+```{r}
+test.p <- cbind(test, predict(m.logit, newdata = test, type = "response", se = TRUE))
+test.p <- cbind(test.p, pred.target <- factor(ifelse(test.p$fit > 0.5, 1, 0)))
+(m.confusiontest <- as.matrix(table(test.p$pred.target, test.p$target)))
+
+```
+### calculation of the error rate on the test sample
+
+```{r}
+m.confusiontest <- unclass(m.confusiontest)
+
+Tx_err(test.p$pred.target, test.p$target)
+```
+
+### Construction of ROC curves: 
+This curve, or rather the area under it, represents the sensitivity/specificity of the model. A model is good if positives (1) were predicted positives and 0 were predicted 0.
+Generally, we are interested in both the shape of the curve and the area under it: 1–> Ideal model, 0.5 –> Random model;
+
+Principle of the ROC curve: if the test gives a numerical result with a threshold t such that the prediction is positive if x > t, and the prediction is negative if x < t, then as t increases:
+
+the specificity increases.
+but the sensitivity decreases.
+The ROC curve represents the change in sensitivity (rate of true positives) as a function of 1 - specificity (rate of false positives) when the threshold t is varied.
+
+It is an increasing curve between the point (0,0) and the point (1, 1) and in principle above the first bisector. A random prediction would give the first bisector. The better the prediction, the more the curve is above the first bisector. An ideal prediction is the horizontal y=1 on ]0,1] and the point (0,0). The area under the ROC curve (AUC, Area Under the Curve) gives an indicator of the quality of the prediction (1 for an ideal prediction, 0.5 for a random prediction).
+```{r}
+Pred = prediction(appren.p$PredictedProb, appren.p$target)
+Perf = performance(Pred, "tpr", "fpr")
+plot(Perf, colorize = TRUE, main = "ROC apprentissage")
+```
+```{r}
+perf <- performance(Pred, "auc")
+perf@y.values[[1]]
+```
+
+To get the area under the curve, we will rather use
+```{r}
+Predtest = prediction(test.p$fit, test.p$target)
+Perftest = performance(Predtest, "tpr", "fpr")
+perftest <- performance(Predtest, "auc")
+perftest@y.values[[1]]
+```
+
+We will make the roc curve with each set (training and testing) and we will verify if the model is overfitted.
+
+```{r}
+par(mfrow = c(1, 2))
+plot(Perf, colorize = TRUE, main = "Training ROC - AUC= 0.95")
+plot(Perftest, colorize = TRUE, main = "Testing ROC - AUC = 0.92 ")
+```
+
+
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+
+

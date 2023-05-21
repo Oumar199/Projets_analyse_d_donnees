@@ -1,0 +1,317 @@
+---
+title: "AFD_heart"
+author: "Oumar Kane"
+date: "19/03/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# FAD with heart attack dataset
+
+## We have recuperated a dataset named heart_attack which is very interesting for a debut
+
+
+## Let's import the needed libraries further
+```{r}
+library(corrplot)
+library(FactoMineR)
+library(factoextra)
+
+# the glm function will be use because we have binary categorical target
+```
+
+
+## We can recuperate the dataset by indicating the path
+
+```{r}
+heart_data = read.csv("E:/Oumar/Ordinateur Dell/oumar/documents/Cours/IA data forest/master semestre 2/Analyse de données/Projets/Data/Heart_disease/data/heart2.csv")
+```
+
+Let's attach the dataset to manipulate fastly the columns
+```{r}
+attach(heart_data)
+```
+
+We have to see the five first lines of the dataset and verify the types of the variables
+```{r}
+head(heart_data)
+```
+The data is already cleaned. We have some categorical variables but those variables are encoded.
+Let's profile deeper the dataset.
+
+## Let's see if the different variables are correlated together with a pairplot
+## and a corrplot
+
+We cannot describe the correlation plots with the categorical variables but only with the quantitative variables. Let's recuperate only 
+the quantitative variables in a new data frame.
+
+```{r}
+quanti = heart_data[, c(1, 4, 5, 8, 10)]
+```
+
+Let's trace a pairplot without categorical variables
+```{r}
+pairs(quanti)
+```
+
+We see that some variables like thalach and age or chol and age are correlated 
+```{r}
+# Let's trace the corrplot to see more clearly the variables interactions
+corrplot(cor(quanti))
+```
+**Conclusion : We can see that age is correlate with the other variables. Thalach and oldpeak are also correlated.**
+
+
+
+With the factorial discrimant analysis we cannot use all of the categorical variables but just one of them
+the target variable. We will do it with two categorical variables at another time
+The target variable contains the binary digits 1 and 0 which represent respectively that the patient may die from
+a heart attack and the patient will not get a heart attack
+```{r}
+# We can recuperate the variables that we want to use for the next steps
+heart_dis = heart_data[, c(1, 4, 5, 8, 10, 14)]
+```
+
+Let's change the type of the categorical variable to factor
+```{r}
+heart_dis[, 6] = as.factor(heart_dis[, 6])
+```
+
+## Let's begin the factorial discrimant analysis
+
+We will use the FAMD function which can perform the analysis 
+```{r}
+# we will not visualize a graph for the moment
+res.fad = FAMD(heart_dis, graph = FALSE)
+
+# Let's see which attributes the result contains
+print(res.fad)
+```
+
+
+## Interprate the results
+### Eigenvalues and inertia
+The eigen values measure the variance percentage explained by each of the components or eigen vectors 
+```{r}
+# Let's recuperate the eigen values in a variable
+eig_val = get_eigenvalue(res.fad)
+eig_val
+```
+The two first dimensions contain 54.80 % of the information and the three first variables explain
+69.53 % of the information. To obtain more than 80 % of the information we must use
+as least the four first dimensions
+
+### Visualization of the eigen values on a screeplot
+```{r}
+# Let's use the fviz_eig to obtain the graphic
+fviz_eig(res.fad, addlabels = TRUE, barfill = "#64f38c", barcolor = "#64f38c")
+```
+We obtained a curve elbow on the fourth dimension
+**conclusion: The four first dimensions are enough important for obtain most of the dataset information** 
+
+### Visualization of the variable results : 
+For the moment we trace the plots with the target variable but the categorical
+variable will be exclude of the interpretations for the moment.
+
+
+the get_afd_var() function will be used to get the variable results
+```{r}
+var = get_famd_var(res.fad)
+var
+```
+
+Let's plot the results on a graph
+```{r}
+fviz_famd_var(res.fad, col.var = "Black")
+```
+**Conclusion: We see clearly that the variable which the second dimension represents the most is chol variable and for the first dimension we have age, thalach and oldpeak. trestbps variable isn't well represented by both of the dimensions.**
+
+### Quality of representation (cos2) 
+Let's plot the same graph with, at this time, variables colored by quality of representation
+```{r}
+fviz_famd_var(res.fad, col.var = "cos2", gradient.cols = c("blue", "red"), repel = TRUE)
+```
+
+But we can see that the most high quality percentage is around 0.5, which is not very important
+So we can conclude that we have to choose more than 2 dimensions to have a good representation of
+the variables.
+
+We can trace with the dimensions 3 and 4 and see what happens
+```{r}
+fviz_famd_var(res.fad, col.var = "cos2", gradient.cols = c("blue", "red"), repel = TRUE, axes = c(2, 3))
+```
+The trestbps is most well represented by the third dimension
+
+### Quality of representation to axes 1 and 2
+```{r}
+fviz_cos2(res.fad, choice = "var", fill = "red", axes = 1:2)
+```
+Every variables are represented by the first two axes
+
+### Quality of representation to axes 3 and 4
+```{r}
+fviz_cos2(res.fad, choice = "var", fill = "red", axes = 3:4)
+```
+Some variables like trestbps and chol are more represented by the axes 3 and 4. We can plot with the first third axes to see if we obtain best analysis.
+
+### Quality of representation to axes 1 to 3
+```{r}
+fviz_cos2(res.fad, choice = "var", fill = "red", axes = 1:3)
+```
+We obtain a greater quality for all the variables. The quality of representation of trestbps is the more important.
+
+
+Let's see if we obtain a greater analysis with a corrplot
+```{r}
+corrplot(var$cos2, is.corr = FALSE, col = colorRampPalette(c("blue", "lightblue"))(200))
+```
+
+We see that the first three dimensions represent all of the variables if we combine them together
+
+### Contributions of the variables to the contruction of the dimension
+Let's plot the contributions of the variables to the axes
+
+#### To axe 1
+```{r}
+fviz_contrib(res.fad, choice = "var")
+```
+Automaticaly we see that thalach, oldpeak and age are the variable that contribute the most 
+to the first dimension.
+
+#### To axe 2
+```{r}
+fviz_contrib(res.fad, choice = "var", axes = 2)
+```
+For the second axe, only chol and trestbps contribute greatly to his construction.
+
+#### To axe 3
+```{r}
+fviz_contrib(res.fad, choice = "var", axes = 3)
+```
+For the axe 3 we have trestbps and chol.
+
+Let's plot now for multiple axes
+#### To axes 1 and 2
+```{r}
+fviz_contrib(res.fad, choice = "var", axes = c(1, 2))
+```
+
+Great contribution are done by the variables : thalach, chol, age, oldpeak and trestbps.
+
+#### To axes 1, 2 and 3
+```{r}
+fviz_contrib(res.fad, choice = "var", axes = 1:3)
+```
+With the axe 3, the contribution of trestbps is the most important.
+
+Let's plot the contributions of the variables to the axes with a corrplot and see what happens
+```{r}
+corrplot(var$contrib, is.corr = FALSE, col = colorRampPalette(c("yellow", "darkred"))(200))
+```
+
+Every variables contribute to the construction of the first three dimensions.
+
+
+### We can begin the analysis of the quantitative variables
+
+Let's recuperate those variables, further.
+```{r}
+quanti.var = get_famd_var(res.fad, element = "quanti.var")
+quanti.var
+```
+
+```{r}
+fviz_famd_var(res.fad, "quanti.var", repel = TRUE, col.var = "Black")
+```
+
+The thalach, age and oldpeak variables are more represented by the first dimension and the chol and trestbps are more represented by the second dimension. We can see clearly that the thalach and oldpeak variables are negatively correlated and chol, trestbps and age are posivetely correlated.
+
+Let's color the variables by percentage of contributions
+
+```{r}
+fviz_famd_var(res.fad, "quanti.var", col.var = "contrib", repel = TRUE, gradient.cols = c("#D7c257", "#A7c257", "#17c257"))
+```
+We see that thalach are the variable that contributes the most to the construction of the first two dimensions.
+
+Let's color the variables by percentage of representation quality
+
+```{r}
+fviz_famd_var(res.fad, "quanti.var", col.var = "cos2", repel = TRUE, gradient.cols = c("#D7c257", "#A7c257", "#17c257"))
+```
+The thalach variable is also the variable that have the best quality of representation.
+
+
+## Visualization of observations
+Let's get the observation results and analyse them.
+```{r}
+ind = get_famd_ind(res.fad)
+ind
+```
+
+we can plot the observations 
+```{r}
+fviz_famd_ind(res.fad, repel = TRUE, geom = 'point')
+```
+We have too many observations so the graphic is not very clear.
+
+We can color the observations following their representation qualities
+```{r}
+fviz_famd_ind(res.fad, col.ind = "cos2", gradient.cols = c("yellow", "red"), repel = TRUE, geom = "point")
+```
+
+Many individuals have a good representation quality (over than 75 percent)
+
+We can keep the top 20 of individuals which have the most important representation qualities to dimensions
+
+### To Dim 1
+```{r}
+fviz_cos2(res.fad, choice = "ind", top = 20)
+
+```
+
+### To Dim 2
+```{r}
+fviz_cos2(res.fad, choice = "ind", top = 20, axes = 2)
+```
+
+For both of axes 1 and 2 we obtain over than 75 percent of representation quality for the top 20 of individuals
+
+But we doesn't obtain the same individuals. Let's plot for axes 1 and 2
+
+### To axes 1 and 2
+```{r}
+fviz_cos2(res.fad, choice = "ind", top = 20, axes = c(1, 2))
+```
+
+
+The representation quality of individuals top 20 is over than 90 %. That is very important.
+
+
+### To axes 1, 2 and 3
+```{r}
+fviz_cos2(res.fad, choice = "ind", top = 20, axes = c(1, 2, 3))
+```
+
+Let's visualize now the contributions of the individuals to axes
+
+### To axe 1, 2 and 3
+```{r}
+fviz_contrib(res.fad, choice = "ind", top = 20, axes = c(1, 2, 3))
+```
+
+
+### Let's plot finally the clusters with the categorical variable, target
+```{r}
+fviz_famd_ind(res.fad,
+              geom = "point",
+              habillage = "target",
+              palette = c("blue", "red"),
+              addEllipses = TRUE,
+              ellipse.type = "confidence",
+              repel = TRUE)
+```
+
+
